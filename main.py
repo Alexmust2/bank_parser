@@ -14,7 +14,7 @@ app = FastAPI()
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-@app.post("/parse-bank-statement/")
+@app.post("/parser/parse-bank-statement/")
 async def parse_bank_statement(file: UploadFile = File(...)):
     try:
         # Проверяем, что файл является PDF
@@ -61,7 +61,7 @@ async def parse_bank_statement(file: UploadFile = File(...)):
         print(f"Ошибка обработки файла: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
-@app.get("/")
+@app.get("/parser")
 async def root():
     return {"message": "Bank Statement Parser API"}
 
