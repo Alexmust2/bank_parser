@@ -88,7 +88,6 @@ class TableParser:
                                         self.rejected_rows.append({
                                             "source": "camelot",
                                             "page": table.page,
-                                            "row": row,
                                             "reason": "Не удалось распарсить строку в транзакцию",
                                             "headers": headers
                                         })
@@ -138,7 +137,6 @@ class TableParser:
                                             self.rejected_rows.append({
                                                 "source": "pdfplumber",
                                                 "page": page_num,
-                                                "row": row,
                                                 "reason": "Не удалось распарсить строку в транзакцию"
                                             })
             print(f"Найдено {len(transactions)} транзакций через pdfplumber")
@@ -179,14 +177,15 @@ class TableParser:
     def _parse_table_row(self, headers: List, row: List) -> Optional[Dict]:
         """Парсинг строки таблицы"""
         try:
-            row_dict = {}
-            for i, header in enumerate(headers):
-                if i < len(row) and row[i] is not None:
-                    row_dict[str(header)] = str(row[i])
-            
             date_field = None
             amount_field = None
             description_field = None
+            
+            # Создаем временный словарь только для парсинга
+            temp_dict = {}
+            for i, header in enumerate(headers):
+                if i < len(row) and row[i] is not None:
+                    temp_dict[str(header)] = str(row[i])
             
             amount_priority = [
                 'сумма в валюте операции',
@@ -209,7 +208,7 @@ class TableParser:
             ]
             
             for priority_key in amount_priority:
-                for key, value in row_dict.items():
+                for key, value in temp_dict.items():
                     key_lower = key.lower()
                     if priority_key in key_lower:
                         parsed_amount = parse_amount(value)
@@ -220,7 +219,7 @@ class TableParser:
                     break
             
             if not amount_field:
-                for key, value in row_dict.items():
+                for key, value in temp_dict.items():
                     key_lower = key.lower()
                     if any(non_key in key_lower for non_key in non_amount_keys):
                         continue
@@ -240,7 +239,7 @@ class TableParser:
             ]
             
             for priority_key in date_priority:
-                for key, value in row_dict.items():
+                for key, value in temp_dict.items():
                     key_lower = key.lower()
                     if priority_key in key_lower:
                         parsed_date = parse_date(value)
@@ -251,7 +250,7 @@ class TableParser:
                     break
             
             if not date_field:
-                for value in row_dict.values():
+                for value in temp_dict.values():
                     if parse_date(value):
                         date_field = value
                         break
@@ -268,7 +267,7 @@ class TableParser:
             ]
             
             for priority_key in description_priority:
-                for key, value in row_dict.items():
+                for key, value in temp_dict.items():
                     key_lower = key.lower()
                     if priority_key in key_lower:
                         description_field = value
@@ -278,7 +277,7 @@ class TableParser:
             
             if not description_field:
                 candidates = []
-                for key, value in row_dict.items():
+                for key, value in temp_dict.items():
                     if (len(value) > 10 and 
                         not parse_date(value) and 
                         parse_amount(value) is None and
@@ -293,8 +292,7 @@ class TableParser:
                     "amount": parse_amount(amount_field),
                     "description": clean_description(description_field),
                     "type": classify_transaction(description_field),
-                    "method": "table",
-                    "raw_data": row_dict
+                    "method": "table"
                 }
             else:
                 reason = []
@@ -306,7 +304,6 @@ class TableParser:
                     reason.append("Отсутствует описание")
                 self.rejected_rows.append({
                     "source": "table",
-                    "row": row_dict,
                     "reason": "; ".join(reason)
                 })
                 return None
@@ -314,7 +311,6 @@ class TableParser:
             print(f"Ошибка парсинга строки таблицы: {e}")
             self.rejected_rows.append({
                 "source": "table",
-                "row": row_dict if 'row_dict' in locals() else row,
                 "reason": f"Ошибка парсинга: {str(e)}"
             })
             return None
